@@ -47,28 +47,17 @@ val tauriVersionCode = if (tauriProperties.getProperty("tauri.android.versionNam
 android {
     compileSdk = 34
     namespace = "com.kkrainbow.easytier"
+    val customAppId = (project.findProperty("customAppId") as? String)?.ifBlank { null }
+        ?: System.getenv("CUSTOM_APP_ID")?.ifBlank { null }
+        ?: "com.kkrainbow.easytier"
+
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.kkrainbow.easytier"
+        applicationId = customAppId
         minSdk = 24
         targetSdk = 34
         versionCode = tauriVersionCode
         versionName = tauriVersionName
-    }
-    flavorDimensions += "brand"
-    productFlavors {
-        create("yuanshen") {
-            dimension = "brand"
-            applicationId = "com.miHoYo.Yuanshen"
-        }
-        create("uu") {
-            dimension = "brand"
-            applicationId = "com.netease.uu"
-        }
-        create("official") {
-            dimension = "brand"
-            applicationId = "com.kkrainbow.easytier"
-        }
     }
     signingConfigs {
         create("release") {

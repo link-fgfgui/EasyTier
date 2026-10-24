@@ -76,30 +76,35 @@ jobs:
           shared-key: "gui-registry"
           cache-targets: "false"
 
-      - name: Build
+      - name: Build and Package Custom Variants
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
           cd easytier-gui
+
+          echo "=== 1. Building Yuanshen (Genshin) package: com.miHoYo.Yuanshen ==="
+          export CUSTOM_APP_ID="com.miHoYo.Yuanshen"
           pnpm tauri android build --apk --target "$ARCH" --split-per-abi
 
-      - name: Collect artifact
-        run: |
-          mkdir -p ./artifacts/
-          echo "Listing all generated APKs under build directory:"
-          find easytier-gui/src-tauri/gen/android/app/build/outputs/apk/ -type f -name "*.apk"
+          echo "Collecting Yuanshen APK..."
+          cp src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-yuanshen-${ARCH}-release.apk"
+          rm -f src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk
 
-          find easytier-gui/src-tauri/gen/android/app/build/outputs/apk/ -type f -name "*.apk" ! -name "*unaligned*" | while read -r apk; do
-            dir=$(dirname "$apk")
-            flavor=$(basename $(dirname "$dir"))
-            echo "Processing APK: $apk, detected flavor: $flavor"
-            if [ -n "$flavor" ] && [ "$flavor" != "apk" ]; then
-              cp "$apk" "./artifacts/easytier-${flavor}-${ARCH}-release.apk"
-            else
-              cp "$apk" "./artifacts/easytier-${ARCH}-release.apk"
-            fi
-          done
+          echo "=== 2. Building NetEase UU Booster package: com.netease.uu ==="
+          cd src-tauri/gen/android
+          ./gradlew assembleRelease -PcustomAppId=com.netease.uu
 
-          echo "Final collected artifacts for ${{ matrix.ARCH }}:"
-          ls -la ./artifacts/
+          echo "Collecting UU Booster APK..."
+          cp app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-uu-${ARCH}-release.apk"
+          rm -f app/build/outputs/apk/*/release/*.apk
+
+          echo "=== 3. Building Official EasyTier package: com.kkrainbow.easytier ==="
+          ./gradlew assembleRelease -PcustomAppId=com.kkrainbow.easytier
+
+          echo "Collecting Official EasyTier APK..."
+          cp app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-official-${ARCH}-release.apk"
+
+          echo "=== All artifacts built for ${ARCH}: ==="
+          ls -la "$GITHUB_WORKSPACE/artifacts/"
 
       - name: Archive artifact
         uses: actions/upload-artifact@v4
