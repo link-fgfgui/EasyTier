@@ -86,22 +86,21 @@ jobs:
           pnpm tauri android build --apk --target "$ARCH" --split-per-abi
 
           echo "Collecting Yuanshen APK..."
-          cp src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-yuanshen-${ARCH}-release.apk"
-          rm -f src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk
+          mv src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-yuanshen-${ARCH}-release.apk"
 
           echo "=== 2. Building NetEase UU Booster package: com.netease.uu ==="
-          cd src-tauri/gen/android
-          ./gradlew assembleRelease -PcustomAppId=com.netease.uu
+          export CUSTOM_APP_ID="com.netease.uu"
+          pnpm tauri android build --apk --target "$ARCH" --split-per-abi
 
           echo "Collecting UU Booster APK..."
-          cp app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-uu-${ARCH}-release.apk"
-          rm -f app/build/outputs/apk/*/release/*.apk
+          mv src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-uu-${ARCH}-release.apk"
 
           echo "=== 3. Building Official EasyTier package: com.kkrainbow.easytier ==="
-          ./gradlew assembleRelease -PcustomAppId=com.kkrainbow.easytier
+          export CUSTOM_APP_ID="com.kkrainbow.easytier"
+          pnpm tauri android build --apk --target "$ARCH" --split-per-abi
 
           echo "Collecting Official EasyTier APK..."
-          cp app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-official-${ARCH}-release.apk"
+          mv src-tauri/gen/android/app/build/outputs/apk/*/release/*.apk "$GITHUB_WORKSPACE/artifacts/easytier-official-${ARCH}-release.apk"
 
           echo "=== All artifacts built for ${ARCH}: ==="
           ls -la "$GITHUB_WORKSPACE/artifacts/"
