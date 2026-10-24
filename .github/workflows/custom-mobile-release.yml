@@ -1,0 +1,159 @@
+name: Custom EasyTier Mobile Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag Name'
+        required: true
+        default: 'v2.7.0-custom'
+        type: string
+  push:
+    tags:
+      - 'v*custom*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-mobile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - TARGET: aarch64-linux-android
+            ARCH: aarch64
+          - TARGET: armv7-linux-androideabi
+            ARCH: armv7
+    runs-on: ubuntu-latest
+    env:
+      NAME: easytier
+      TARGET: ${{ matrix.TARGET }}
+      ARCH: ${{ matrix.ARCH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set current ref as env variable
+        run: |
+          echo "GIT_DESC=$(git log -1 --format=%cd.%h --date=format:%Y-%m-%d_%H:%M:%S)" >> $GITHUB_ENV
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'oracle'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12.0
+          packages: 'build-tools;34.0.0 ndk;26.0.10792818 platform-tools platforms;android-34 '
+
+      - name: Setup Android Environment
+        run: |
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/ndk/26.0.10792818/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+          echo "NDK_HOME=$ANDROID_HOME/ndk/26.0.10792818/" >> $GITHUB_ENV
+
+      - name: Prepare build environment
+        uses: ./.github/actions/prepare-build
+        with:
+          target: ${{ matrix.TARGET }}
+          gui: false
+          pnpm: true
+          pnpm-build-filter: ''
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ""
+          shared-key: "gui-registry"
+          cache-targets: "false"
+
+      - name: Build
+        run: |
+          cd easytier-gui
+          pnpm tauri android build --apk --target "$ARCH" --split-per-abi
+
+      - name: Collect artifact
+        run: |
+          mkdir -p ./artifacts/
+          echo "Listing all generated APKs under build directory:"
+          find easytier-gui/src-tauri/gen/android/app/build/outputs/apk/ -type f -name "*.apk"
+
+          find easytier-gui/src-tauri/gen/android/app/build/outputs/apk/ -type f -name "*.apk" ! -name "*unaligned*" | while read -r apk; do
+            dir=$(dirname "$apk")
+            flavor=$(basename $(dirname "$dir"))
+            echo "Processing APK: $apk, detected flavor: $flavor"
+            if [ -n "$flavor" ] && [ "$flavor" != "apk" ]; then
+              cp "$apk" "./artifacts/easytier-${flavor}-${ARCH}-release.apk"
+            else
+              cp "$apk" "./artifacts/easytier-${ARCH}-release.apk"
+            fi
+          done
+
+          echo "Final collected artifacts for ${{ matrix.ARCH }}:"
+          ls -la ./artifacts/
+
+      - name: Archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-mobile-${{ matrix.ARCH }}
+          path: |
+            ./artifacts/*
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: build-mobile
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloaded-artifacts
+          pattern: easytier-mobile-*
+          merge-multiple: true
+
+      - name: Prepare release files
+        run: |
+          mkdir -p ./release-assets
+          cp ./downloaded-artifacts/*.apk ./release-assets/
+          echo "Assets to publish:"
+          ls -la ./release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "EasyTier 定制包名 Android 版 (原神 & UU 加速器)"
+          tag_name: ${{ github.event.inputs.tag_name || 'v2.7.0-custom' }}
+          draft: false
+          prerelease: false
+          files: |
+            ./release-assets/*.apk
+          body: |
+            ## EasyTier 定制包名 Android 安装包 (v2.7.0)
+
+            本版本基于官方 EasyTier v2.7.0 编译，包含原神与 UU 加速器包名定制变体，支持特定网络环境/校园网/免流规则。
+
+            ### 包含版本说明：
+            * **原神包名版 (`easytier-yuanshen-*-release.apk`)**：
+              - 包名（`applicationId`）：`com.miHoYo.Yuanshen`
+              - 适用场景：原神游戏定向流量/游戏空间/QoS 加速策略匹配
+            * **UU 加速器包名版 (`easytier-uu-*-release.apk`)**：
+              - 包名（`applicationId`）：`com.netease.uu`
+              - 适用场景：游戏加速器定向白名单/免流/QoS 策略匹配
+            * **官方包名版 (`easytier-official-*-release.apk`)**：
+              - 包名（`applicationId`）：`com.kkrainbow.easytier`
+              - 官方标准版本备用
+
+            ### 技术改进：
+            - 内置运行时自身包名免除 VPN 拦截机制（`builder.addDisallowedApplication(packageName)`），彻底防止定制包名后由于自身 P2P 隧道流量被环路捕获导致的 VPN 网络死锁。

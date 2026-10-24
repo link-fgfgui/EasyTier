@@ -55,6 +55,21 @@ android {
         versionCode = tauriVersionCode
         versionName = tauriVersionName
     }
+    flavorDimensions += "brand"
+    productFlavors {
+        create("yuanshen") {
+            dimension = "brand"
+            applicationId = "com.miHoYo.Yuanshen"
+        }
+        create("uu") {
+            dimension = "brand"
+            applicationId = "com.netease.uu"
+        }
+        create("official") {
+            dimension = "brand"
+            applicationId = "com.kkrainbow.easytier"
+        }
+    }
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("keystore.properties")
