@@ -218,6 +218,12 @@ class TauriVpnService : VpnService() {
             builder.addDisallowedApplication(app)
         }
 
+        try {
+            builder.addDisallowedApplication(packageName)
+        } catch (e: Exception) {
+            println("Failed to disallow self package: $packageName, error: $e")
+        }
+
         return builder.also {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 it.setMetered(false)

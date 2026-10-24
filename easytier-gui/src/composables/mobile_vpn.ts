@@ -231,7 +231,7 @@ async function doStartVpn(
     ipv4Addrs,
     routes,
     dns,
-    disallowedApplications: ['com.kkrainbow.easytier'],
+    disallowedApplications: ['com.kkrainbow.easytier', 'com.miHoYo.Yuanshen', 'com.netease.uu'],
     mtu: 1300,
   }
 
